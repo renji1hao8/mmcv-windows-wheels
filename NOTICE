@@ -1,0 +1,27 @@
+mmcv Windows (CUDA) unofficial wheels
+=====================================
+
+本仓库提供的是 mmcv 的**非官方 Windows 预编译轮子**，以及从零复现该轮子的构建脚本。
+
+来源
+----
+- 源码：open-mmlab/mmcv 官方 sdist
+  https://pypi.org/project/mmcv/2.1.0/#files
+- 版权：(c) OpenMMLab. All rights reserved.
+- 许可证：Apache License 2.0（见同目录 LICENSE，原文未做任何改动）
+
+本仓库做了什么
+--------------
+**没有修改 mmcv 的任何源码。** 仅提供：
+
+1. Windows 平台的构建脚本（初始化 MSVC 环境、设置 mmcv/torch 编译所需的
+   环境变量、调用 `setup.py bdist_wheel`）；
+2. 上述脚本产出的二进制 wheel 的分发。
+
+构建环境与步骤见 README.md。任何源码层面的问题请报给上游 open-mmlab/mmcv；
+构建脚本的问题报本仓库。
+
+免责
+----
+本仓库与 OpenMMLab 无隶属关系，也未经其审核或背书。
+轮子按 Apache-2.0 的"AS IS"条款提供，不附带任何担保。

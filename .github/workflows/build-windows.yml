@@ -1,0 +1,90 @@
+name: build mmcv windows wheel
+
+# 手动触发：填要构建的 mmcv 版本与目标架构列表。
+# 产物以 artifact 形式上传；打 tag 时另附到 Release。
+on:
+  workflow_dispatch:
+    inputs:
+      mmcv_version:
+        description: 'mmcv version to build (e.g. 2.1.0)'
+        required: true
+        default: '2.1.0'
+      python_version:
+        description: 'Python version (3.10 matches torch 2.1.x)'
+        required: true
+        default: '3.10'
+      torch_version:
+        description: 'torch version (e.g. 2.1.2+cu121)'
+        required: true
+        default: '2.1.2+cu121'
+      torch_index:
+        description: 'torch wheel index url'
+        required: true
+        default: 'https://download.pytorch.org/whl/cu121'
+      cuda_arch_list:
+        description: 'TORCH_CUDA_ARCH_LIST (semicolon separated)'
+        required: true
+        default: '7.5;8.0;8.6;8.9;9.0'
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Show CUDA / MSVC toolchain
+        shell: cmd
+        run: |
+          nvcc --version
+          where cl || echo "(cl not on PATH yet; vcvars will be called by the build script)"
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "torch==${{ inputs.torch_version }}" torchvision \
+              --index-url "${{ inputs.torch_index }}"
+          # setuptools<81: 81 起移除了 pkg_resources，而 mmcv 2.1.0 的 setup.py 依赖它
+          python -m pip install "numpy<2" "setuptools<81" addict "mmengine>=0.3.0" \
+              packaging Pillow pyyaml yapf regex wheel
+
+      - name: Fetch mmcv sdist
+        shell: bash
+        run: |
+          set -e
+          V="${{ inputs.mmcv_version }}"
+          curl -sSL -o "mmcv-$V.tar.gz" \
+              "https://files.pythonhosted.org/packages/source/m/mmcv/mmcv-$V.tar.gz"
+          tar xzf "mmcv-$V.tar.gz"
+          echo "MMCV_SRC=$PWD/mmcv-$V" >> "$GITHUB_ENV"
+
+      - name: Build CUDA extensions
+        shell: cmd
+        env:
+          TORCH_CUDA_ARCH_LIST: ${{ inputs.cuda_arch_list }}
+          MMCV_WITH_OPS: '1'
+          DISTUTILS_USE_SDK: '1'
+          MSSdk: '1'
+          MAX_JOBS: '4'
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+          cd /d "%MMCV_SRC%"
+          python setup.py bdist_wheel
+
+      - name: Verify the wheel imports and exposes CUDA ops
+        shell: bash
+        run: |
+          set -e
+          python -m pip install "$MMCV_SRC"/dist/*.whl
+          # 只 import mmcv 不算验证：mmcv-lite（无算子）也能 import。
+          # 必须确认 CUDA 算子真的在。
+          python -c "from mmcv.ops import ball_query; print('CUDA ops OK')"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mmcv-windows-wheel
+          path: ${{ env.MMCV_SRC }}/dist/*.whl

@@ -1,0 +1,4 @@
+# 轮子只挂到 Release，不进仓库（20MB 二进制不该留在 git 历史里）
+dist/
+__pycache__/
+*.pyc

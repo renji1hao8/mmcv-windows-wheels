@@ -1,0 +1,8 @@
+# 跨平台仓库：统一按 LF 存（本仓库的构建脚本就是在 LF 下实测通过的，
+# cmd 与 bash 都能正常读 LF 的 .bat / .sh，不必为 Windows 单独转 CRLF）。
+* text=auto eol=lf
+
+# 二进制
+*.whl binary
+*.pyd binary
+*.tar.gz binary
