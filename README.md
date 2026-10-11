@@ -23,10 +23,11 @@ PyPI 上的 `mmcv` **只提供 sdist，没有 Windows 轮子**（`mmcv 2.1.0` �
 
 | 版本 | Python | torch | CUDA | 目标架构 | 下载 |
 |---|---|---|---|---|---|
-| mmcv 2.1.0 | 3.10 | 2.1.2+cu121 | 12.1 | `sm_70/75/80/86/89/90` | [Release](https://github.com/renji1hao8/mmcv-windows-wheels/releases/tag/v2.1.0-torch2.1.2-cu121) |
+| mmcv 2.1.0 | 3.10 | 2.1.2+cu121 | 12.1 | `sm_70/75/80/86/89/90` + `compute_90` PTX | [Release](https://github.com/renji1hao8/mmcv-windows-wheels/releases/tag/v2.1.0-torch2.1.2-cu121) |
 
-覆盖 V100 / T4·RTX 20 系 / A100 / RTX 30 系 / RTX 40 系 / H100。
-未包含 PTX，更新的架构（如 Blackwell）不在覆盖范围内，参见[常见问题](#常见问题)。
+覆盖 V100 / T4·RTX 20 系 / A100 / RTX 30 系 / RTX 40 系 / H100；
+另附带 `compute_90` 的 PTX，高于 `sm_90` 的架构（如 Blackwell）可由驱动即时编译运行，
+首次运行有一次性 JIT 开销。
 
 ## 安装
 
@@ -127,14 +128,18 @@ Linux / WSL 环境使用 `build/build.sh`（环境变量相同，用法见脚本
 在 `torch 2.1.2+cu121`（CUDA 12.1）上运行正常 —— CUDA 12.x 内部保持次版本兼容。
 
 **目标 GPU 不在 `sm_70`–`sm_90` 范围内怎么办？**
-需要自行构建，并在 `TORCH_CUDA_ARCH_LIST` 中加入对应架构。如需兼容未来架构，
-可在列表中附加 `+PTX`（例如 `8.0+PTX`），使驱动能够即时编译；代价是轮子体积增大、
-构建时间延长。
+`sm_70`–`sm_90` 已由 SASS 直接覆盖。高于 `sm_90` 的架构（如 Blackwell）
+可由驱动从轮子内置的 `compute_90` PTX 即时编译运行，首次运行有一定 JIT 开销。
+若目标架构**低于** `sm_70`，需自行构建并在 `TORCH_CUDA_ARCH_LIST` 中加入对应架构。
 
-**为什么轮子未包含 PTX？**
-构建时使用的是 `code=sm_XX`（仅嵌入 SASS）。可用
-`cuobjdump -lelf mmcv/_ext*.pyd` 查看实际嵌入的架构，
-`cuobjdump -lptx` 确认是否包含 PTX。
+**轮子包含 PTX 吗？**
+包含。构建参数为 `7.0;7.5;8.0;8.6;8.9;9.0+PTX`，除 6 个架构的 SASS 外，
+还嵌入了 `compute_90` 的 PTX。可自行核对：
+
+```
+cuobjdump -lelf mmcv/_ext*.pyd | grep -oE 'sm_[0-9]+' | sort -u     # SASS 架构
+cuobjdump -lptx mmcv/_ext*.pyd                                      # PTX 段
+```
 
 **能否发布到 PyPI？**
 不能。PyPI 上 `mmcv` 这一发行名归属 OpenMMLab，同名上传会被拒绝，且会造成混淆。
